@@ -63,39 +63,46 @@ The threshold `N` is configurable via `--min_completeness` (default `90`).
 
 ## Quick start
 
-### 1. Install Nextflow
+### 1. Prerequisites
+
+- **Miniconda** (or Mamba) — [install guide](https://docs.conda.io/en/latest/miniconda.html)
+- **Nextflow** ≥ 23.04 — requires Java 11+
+- **~16 GB free disk** for databases (+ ~270 GB if BLAST nt is needed)
 
 ```bash
+# Install Nextflow (if not already installed)
 curl -s https://get.nextflow.io | bash
 sudo mv nextflow /usr/local/bin/
+
+# Verify
+nextflow -version
 ```
 
-### 2. Install databases
-
-> **First-time users:** use the bundled setup script — it handles everything automatically.
+### 2. Clone and set up databases
 
 ```bash
 # Clone the pipeline
 git clone https://github.com/cinnetcrash/phage_analysis.git
 cd phage_analysis
 
-# Run the setup script (installs all required databases, ~16 GB total)
+# Install all databases (~16 GB, ~1–2 hours depending on internet speed)
+# The script also installs missing conda environments automatically.
 bash bin/setup_databases.sh --db-dir ~/phage_databases --threads 8
 ```
 
-The script will print the exact `nextflow run` command with all database paths filled in at the end.
+At the end, the script prints the exact `nextflow run` command with all paths pre-filled.
 
-**What gets installed (~16 GB total, BLAST excluded):**
+**What gets installed:**
 
 | Database | Size | Purpose |
 |----------|------|---------|
 | Kraken2 viral | ~8 GB | Taxonomic classification |
 | VirSorter2 | ~3 GB | Viral sequence detection |
 | CheckV | ~3 GB | Genome quality assessment |
-| Pharokka | ~2 GB | Phage annotation |
-| BLAST nt | ~270 GB | Identity search *(optional, `--install-blast`)* |
+| Pharokka | ~2 GB | Phage annotation (E. coli phages) |
+| BLAST nt | ~270 GB | Nucleotide identity *(optional — `--install-blast`)* |
 
-**Skip databases you already have:**
+**Already have some databases?** Skip them:
 ```bash
 bash bin/setup_databases.sh \
     --db-dir ~/phage_databases \
@@ -103,15 +110,10 @@ bash bin/setup_databases.sh \
     --threads 8
 ```
 
-**Manual install** (if you prefer individual commands):
-
-| Database | Command |
-|----------|---------|
-| Kraken2 | `kraken2-build --download-library viral --db /path/to/kraken2_db --threads 8` |
-| VirSorter2 | `virsorter setup -d /path/to/virsorter2_db -j 8 --conda-frontend conda` |
-| CheckV | `checkv download_database /path/to/checkv_db` |
-| Pharokka | `install_databases.py -o /path/to/pharokka_db` |
-| BLAST nt | `cd /path/to/blast_db && update_blastdb.pl --decompress nt` |
+**Preview without installing:**
+```bash
+bash bin/setup_databases.sh --db-dir ~/phage_databases --dry-run
+```
 
 ### 3. Prepare your samplesheet
 

@@ -72,12 +72,46 @@ sudo mv nextflow /usr/local/bin/
 
 ### 2. Install databases
 
-| Database | Install command |
-|----------|----------------|
-| **Kraken2** | `kraken2-build --standard --db /path/to/kraken2_db` |
-| **VirSorter2** | `virsorter setup -d /path/to/virsorter2_db -j 8` |
-| **CheckV** | `checkv download_database /path/to/checkv_db` |
-| **BLAST nt** *(optional)* | `update_blastdb.pl --decompress nt` |
+> **First-time users:** use the bundled setup script — it handles everything automatically.
+
+```bash
+# Clone the pipeline
+git clone https://github.com/cinnetcrash/phage_analysis.git
+cd phage_analysis
+
+# Run the setup script (installs all required databases, ~16 GB total)
+bash bin/setup_databases.sh --db-dir ~/phage_databases --threads 8
+```
+
+The script will print the exact `nextflow run` command with all database paths filled in at the end.
+
+**What gets installed (~16 GB total, BLAST excluded):**
+
+| Database | Size | Purpose |
+|----------|------|---------|
+| Kraken2 viral | ~8 GB | Taxonomic classification |
+| VirSorter2 | ~3 GB | Viral sequence detection |
+| CheckV | ~3 GB | Genome quality assessment |
+| Pharokka | ~2 GB | Phage annotation |
+| BLAST nt | ~270 GB | Identity search *(optional, `--install-blast`)* |
+
+**Skip databases you already have:**
+```bash
+bash bin/setup_databases.sh \
+    --db-dir ~/phage_databases \
+    --skip-kraken2 \
+    --threads 8
+```
+
+**Manual install** (if you prefer individual commands):
+
+| Database | Command |
+|----------|---------|
+| Kraken2 | `kraken2-build --download-library viral --db /path/to/kraken2_db --threads 8` |
+| VirSorter2 | `virsorter setup -d /path/to/virsorter2_db -j 8 --conda-frontend conda` |
+| CheckV | `checkv download_database /path/to/checkv_db` |
+| Pharokka | `install_databases.py -o /path/to/pharokka_db` |
+| BLAST nt | `cd /path/to/blast_db && update_blastdb.pl --decompress nt` |
 
 ### 3. Prepare your samplesheet
 

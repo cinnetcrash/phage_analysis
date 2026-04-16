@@ -1,13 +1,14 @@
 process MULTIQC {
     tag "all_samples"
     publishDir "${params.outdir}/multiqc", mode: 'copy'
+    errorStrategy 'ignore'   // MultiQC başarısız olsa bile pipeline devam eder
 
     input:
     path(qc_files)
 
     output:
-    path("multiqc_report.html"), emit: report
-    path("multiqc_data/"),       emit: data
+    path("multiqc_report.html"), optional: true, emit: report
+    path("multiqc_data/"),       optional: true, emit: data
 
     script:
     """
@@ -15,6 +16,6 @@ process MULTIQC {
         --title "Phage Pipeline QC Report" \\
         --force \\
         --outdir . \\
-        .
+        . || echo "[UYARI] MultiQC başarısız — diğer adımlar etkilenmez."
     """
 }

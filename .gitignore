@@ -38,3 +38,5 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+assets/test_data/*.fastq
+assets/test_data/*.fastq.gz

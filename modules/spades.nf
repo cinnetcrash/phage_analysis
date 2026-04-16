@@ -11,9 +11,27 @@ process SPADES {
     path "spades.log",                                        emit: log
 
     script:
+    // --metaviral: SPAdes >= 3.15; eski sürümler için --meta kullan
+    def spades_mode = params.spades_mode ?: 'auto'
     """
+    # SPAdes versiyon tespiti
+    SPADES_VER=\$(spades.py --version 2>&1 | grep -oP '\\d+\\.\\d+' | head -1)
+    MAJOR=\$(echo \$SPADES_VER | cut -d. -f1)
+    MINOR=\$(echo \$SPADES_VER | cut -d. -f2)
+
+    if [ "${spades_mode}" = "auto" ]; then
+        # 3.15+ → --metaviral; altı → --meta
+        if [ "\$MAJOR" -gt 3 ] || ( [ "\$MAJOR" -eq 3 ] && [ "\$MINOR" -ge 15 ] ); then
+            MODE="--metaviral"
+        else
+            MODE="--meta"
+        fi
+    else
+        MODE="--${spades_mode}"
+    fi
+
     spades.py \\
-        --metaviral \\
+        \$MODE \\
         -1 ${r1} \\
         -2 ${r2} \\
         -o . \\

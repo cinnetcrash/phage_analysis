@@ -66,14 +66,16 @@ def help_message() {
       --checkv_db       Path to CheckV database
 
     Optional:
-      --blast_db        Path to BLAST database (skip BLAST if not set)
-      --vcontact2_db    vContact2 DB name (default: ProkaryoticViralRefSeq94-Merged)
-      --outdir          Output directory (default: results)
-      --min_contig_len  Minimum contig length in bp (default: 1000)
-      --min_completeness  CheckV completeness threshold % (default: 90)
-      --max_cpus        Max CPUs per job (default: 32)
-      --max_memory      Max memory per job (default: 128.GB)
-      --max_time        Max walltime per job (default: 72.h)
+      --blast_db           Path to BLAST database (skip BLAST if not set)
+      --vcontact2_db       vContact2 DB name (default: ProkaryoticViralRefSeq94-Merged)
+      --outdir             Output directory (default: results)
+      --min_contig_len     Minimum contig length in bp (default: 1000)
+      --min_completeness   CheckV completeness threshold % (default: 90)
+      --skip_virsorter     Skip VirSorter2, pass SPAdes contigs directly to CheckV
+      --skip_kraken2       Skip Kraken2 classification step
+      --max_cpus           Max CPUs per job (default: 32)
+      --max_memory         Max memory per job (default: 128.GB)
+      --max_time           Max walltime per job (default: 72.h)
 
     Profiles:
       -profile conda        Use conda environments (recommended)
@@ -101,12 +103,12 @@ def validate_params() {
         log.error "ERROR: --samplesheet is required. See --help for usage."
         System.exit(1)
     }
-    if (!params.kraken2_db) {
-        log.error "ERROR: --kraken2_db is required. See --help for usage."
+    if (!params.skip_kraken2 && !params.kraken2_db) {
+        log.error "ERROR: --kraken2_db is required (or use --skip_kraken2). See --help for usage."
         System.exit(1)
     }
-    if (!params.virsorter2_db) {
-        log.error "ERROR: --virsorter2_db is required. See --help for usage."
+    if (!params.skip_virsorter && !params.virsorter2_db) {
+        log.error "ERROR: --virsorter2_db is required (or use --skip_virsorter). See --help for usage."
         System.exit(1)
     }
     if (!params.checkv_db) {
@@ -144,8 +146,8 @@ workflow {
     ╠══════════════════════════════════════════════════════════════════╣
     ║  Samplesheet   : ${params.samplesheet}
     ║  Output dir    : ${params.outdir}
-    ║  Kraken2 DB    : ${params.kraken2_db}
-    ║  VirSorter2 DB : ${params.virsorter2_db}
+    ║  Kraken2 DB    : ${params.skip_kraken2 ? '(skipped)' : params.kraken2_db}
+    ║  VirSorter2 DB : ${params.skip_virsorter ? '(skipped)' : params.virsorter2_db}
     ║  CheckV DB     : ${params.checkv_db}
     ║  BLAST DB      : ${params.blast_db ?: '(skipped)'}
     ║  Min contig    : ${params.min_contig_len} bp
@@ -159,17 +161,26 @@ workflow {
     // ── 1. FastQC ─────────────────────────────────────────────────────────────
     FASTQC(reads_ch)
 
-    // ── 2. Kraken2 – viral sınıflandırma ─────────────────────────────────────
-    KRAKEN2(reads_ch)
+    // ── 2. Kraken2 – viral sınıflandırma (opsiyonel) ─────────────────────────
+    if (!params.skip_kraken2) {
+        KRAKEN2(reads_ch)
+    }
 
     // ── 3. SPAdes metaviral assembly ──────────────────────────────────────────
     SPADES(reads_ch)
 
-    // ── 4. VirSorter2 – viral sekans tespiti ─────────────────────────────────
-    VIRSORTER2(SPADES.out.contigs)
+    // ── 4. VirSorter2 – viral sekans tespiti (opsiyonel) ──────────────────────
+    // --skip_virsorter: SPAdes contigleri doğrudan CheckV'ye gönderilir
+    if (!params.skip_virsorter) {
+        VIRSORTER2(SPADES.out.contigs)
+        checkv_input_ch = VIRSORTER2.out.viral_seqs
+    } else {
+        log.warn "VirSorter2 atlandı — SPAdes contigleri doğrudan CheckV'ye gönderiliyor."
+        checkv_input_ch = SPADES.out.contigs
+    }
 
     // ── 5. CheckV – kalite değerlendirme ─────────────────────────────────────
-    CHECKV(VIRSORTER2.out.viral_seqs)
+    CHECKV(checkv_input_ch)
 
     // ── 6. Circular / Complete filtre ────────────────────────────────────────
     checkv_for_filter = CHECKV.out.viruses
@@ -217,11 +228,13 @@ workflow {
     // ── 12. MultiQC raporu ────────────────────────────────────────────────────
     qc_files = FASTQC.out.zip
         .map { meta, zips -> zips }
-        .mix(KRAKEN2.out.report.map { meta, r -> r })
-        .mix(CHECKV.out.summary.map  { meta, s -> s })
-        .collect()
+        .mix(CHECKV.out.summary.map { meta, s -> s })
 
-    MULTIQC(qc_files)
+    if (!params.skip_kraken2) {
+        qc_files = qc_files.mix(KRAKEN2.out.report.map { meta, r -> r })
+    }
+
+    MULTIQC(qc_files.collect())
 }
 
 workflow.onComplete {

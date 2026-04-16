@@ -1,0 +1,2 @@
+sample_id,host,R1,R2
+test_ecoli,ecoli,https://raw.githubusercontent.com/cinnetcrash/phage_analysis/main/assets/test_data/test_R1.fastq.gz,https://raw.githubusercontent.com/cinnetcrash/phage_analysis/main/assets/test_data/test_R2.fastq.gz

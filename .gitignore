@@ -1,0 +1,40 @@
+# Nextflow work directory & cache
+work/
+.nextflow/
+.nextflow.log*
+.nextflow.pid
+.nextflow.history
+
+# Results / outputs (user-generated)
+results/
+test_results/
+*.html
+*.svg
+timeline.html
+report.html
+trace.tsv
+
+# Conda envs created by Nextflow
+conda/
+singularity/
+
+# Real samplesheets (keep only template)
+samplesheet.csv
+*_samplesheet.csv
+!assets/samplesheet_template.csv
+!assets/test_samplesheet.csv
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo

@@ -1,0 +1,6 @@
+sample_id,host,R1,R2
+SAMPLE1,ecoli,/absolute/path/to/SAMPLE1_R1.fastq.gz,/absolute/path/to/SAMPLE1_R2.fastq.gz
+SAMPLE2,listeria,/absolute/path/to/SAMPLE2_R1.fastq.gz,/absolute/path/to/SAMPLE2_R2.fastq.gz
+SAMPLE3,salmonella,/absolute/path/to/SAMPLE3_R1.fastq,/absolute/path/to/SAMPLE3_R2.fastq
+SAMPLE4,enterococcus,/absolute/path/to/SAMPLE4_R1.fastq,/absolute/path/to/SAMPLE4_R2.fastq
+SAMPLE5,staphylococcus,/absolute/path/to/SAMPLE5_R1.fastq,/absolute/path/to/SAMPLE5_R2.fastq

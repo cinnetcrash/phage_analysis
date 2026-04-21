@@ -10,10 +10,10 @@ process BACPHLIP {
 
     script:
     """
-    # BACPHLIP her FASTA kaydı için bir satır üretir
     bacphlip \\
         -i ${fasta} \\
         --multi_fasta \\
-        -o ${meta.id}_bacphlip.tsv
+        -f
+    mv ${fasta}.bacphlip ${meta.id}_bacphlip.tsv
     """
 }

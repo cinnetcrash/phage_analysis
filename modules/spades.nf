@@ -39,7 +39,12 @@ process SPADES {
         -m ${task.memory.toGiga()}
 
     # Kısa contigleri filtrele (>= min_contig_len)
-    awk '/^>/{header=\$0; seq=""} !/^>/{seq=seq\$0} /^>/{if(length(seq)>=${params.min_contig_len} && seq!="") print header"\\n"seq} END{if(length(seq)>=${params.min_contig_len}) print header"\\n"seq}' contigs.fasta > contigs_filtered.fasta
+    awk -v min=${params.min_contig_len} '
+        /^>/ { if (header != "" && length(seq) >= min) printf "%s\\n%s\\n", header, seq
+               header = \$0; seq = ""; next }
+               { seq = seq \$0 }
+        END   { if (header != "" && length(seq) >= min) printf "%s\\n%s\\n", header, seq }
+    ' contigs.fasta > contigs_filtered.fasta
     mv contigs_filtered.fasta contigs.fasta
     """
 }

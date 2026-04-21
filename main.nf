@@ -10,17 +10,19 @@ nextflow.enable.dsl = 2
 
     Steps:
       1.  FastQC          — raw read quality control
-      2.  Kraken2         — viral taxonomic classification
-      3.  SPAdes          — metaviral assembly (--metaviral)
-      4.  VirSorter2      — viral sequence identification
-      5.  CheckV          — genome completeness & quality
-      6.  [Filter]        — keep only CIRCULAR / COMPLETE genomes
-      7.  BACPHLIP        — lytic vs. lysogenic prediction
-      8.  Phrokka/Prokka  — phage genome annotation
-      9.  vContact2       — viral taxonomy clustering
-      10. vHULK           — host prediction
-      11. BLAST           — nucleotide identity (optional)
-      12. MultiQC         — aggregated QC report
+      2.  fastp           — adapter trimming & quality filtering
+      3.  Kraken2         — viral taxonomic classification
+      4.  SPAdes          — metaviral assembly (--metaviral / --meta)
+      5.  VirSorter2      — viral sequence identification
+      6.  CheckV          — genome completeness & quality
+      7.  [Filter]        — keep only CIRCULAR / COMPLETE genomes
+      8.  BACPHLIP        — lytic vs. lysogenic prediction
+      9.  Phrokka/Prokka  — phage genome annotation
+      10. vContact2       — viral taxonomy clustering
+      11. vHULK           — host prediction
+      12. BLAST           — nucleotide identity (optional)
+      13. MultiQC         — aggregated QC report
+      14. Summary Report  — combined HTML results report
 
     Usage:
       nextflow run cinnetcrash/phage_analysis \\
@@ -34,6 +36,7 @@ nextflow.enable.dsl = 2
 */
 
 include { FASTQC                  } from './modules/fastqc'
+include { FASTP                   } from './modules/fastp'
 include { KRAKEN2                 } from './modules/kraken2'
 include { SPADES                  } from './modules/spades'
 include { VIRSORTER2              } from './modules/virsorter2'
@@ -46,6 +49,7 @@ include { VCONTACT2               } from './modules/vcontact2'
 include { VHULK                   } from './modules/vhulk'
 include { BLAST                   } from './modules/blast'
 include { MULTIQC                 } from './modules/multiqc'
+include { SUMMARY_REPORT          } from './modules/report'
 
 // ── Yardımcı fonksiyonlar ─────────────────────────────────────────────────────
 
@@ -156,18 +160,22 @@ workflow {
     """.stripIndent()
 
     // ── 0. Girdi ──────────────────────────────────────────────────────────────
-    reads_ch = parse_samplesheet(params.samplesheet)
+    raw_reads_ch = parse_samplesheet(params.samplesheet)
 
-    // ── 1. FastQC ─────────────────────────────────────────────────────────────
-    FASTQC(reads_ch)
+    // ── 1. FastQC (ham okumalar üzerinde) ────────────────────────────────────
+    FASTQC(raw_reads_ch)
 
-    // ── 2. Kraken2 – viral sınıflandırma (opsiyonel) ─────────────────────────
+    // ── 2. fastp – adapter kesme ve kalite filtresi ───────────────────────────
+    FASTP(raw_reads_ch)
+    trimmed_reads_ch = FASTP.out.reads
+
+    // ── 3. Kraken2 – viral sınıflandırma (trimmed, opsiyonel) ────────────────
     if (!params.skip_kraken2) {
-        KRAKEN2(reads_ch)
+        KRAKEN2(trimmed_reads_ch)
     }
 
-    // ── 3. SPAdes metaviral assembly ──────────────────────────────────────────
-    SPADES(reads_ch)
+    // ── 4. SPAdes metaviral assembly (trimmed reads) ──────────────────────────
+    SPADES(trimmed_reads_ch)
 
     // ── 4. VirSorter2 – viral sekans tespiti (opsiyonel) ──────────────────────
     // --skip_virsorter: SPAdes contigleri doğrudan CheckV'ye gönderilir
@@ -225,9 +233,10 @@ workflow {
         BLAST(circular_ch)
     }
 
-    // ── 12. MultiQC raporu ────────────────────────────────────────────────────
+    // ── 13. MultiQC raporu ───────────────────────────────────────────────────
     qc_files = FASTQC.out.zip
         .map { meta, zips -> zips }
+        .mix(FASTP.out.json.map { meta, j -> j })
         .mix(CHECKV.out.summary.map { meta, s -> s })
 
     if (!params.skip_kraken2) {
@@ -235,6 +244,20 @@ workflow {
     }
 
     MULTIQC(qc_files.collect())
+
+    // ── 14. HTML özet raporu ─────────────────────────────────────────────────
+    // Tüm terminal adımların bitmesini beklemek için completion sinyalleri toplanır.
+    // BACPHLIP / vHULK sonuçları yoksa (circular phage bulunamadı) ifEmpty ile devam edilir.
+    report_trigger = MULTIQC.out.report
+        .ifEmpty(file("${params.outdir}/.multiqc_empty"))
+        .mix(
+            BACPHLIP.out.predictions.map { _m, f -> f }.collect().ifEmpty([]),
+            VHULK.out.predictions.map   { _m, f -> f }.collect().ifEmpty([])
+        )
+        .collect()
+        .map { _ -> params.outdir }
+
+    SUMMARY_REPORT(report_trigger)
 }
 
 workflow.onComplete {

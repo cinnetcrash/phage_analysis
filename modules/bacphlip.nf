@@ -10,10 +10,12 @@ process BACPHLIP {
 
     script:
     """
-    bacphlip \\
-        -i ${fasta} \\
-        --multi_fasta \\
-        -f
+    NSEQ=\$(grep -c '^>' ${fasta})
+    if [ "\$NSEQ" -gt 1 ]; then
+        bacphlip -i ${fasta} --multi_fasta -f
+    else
+        bacphlip -i ${fasta} -f
+    fi
     mv ${fasta}.bacphlip ${meta.id}_bacphlip.tsv
     """
 }

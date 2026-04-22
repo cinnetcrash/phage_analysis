@@ -13,14 +13,15 @@ process VHULK {
 
     script:
     """
-    # vHULK: giriş FASTA → output klasörü
-    python3 \$(which vHULK.py) \\
-        -i ${fasta} \\
+    # vHULK -i dizin bekliyor; .fa/.fasta uzantısı gerekli
+    mkdir -p vhulk_input
+    cp ${fasta} vhulk_input/${meta.id}.fasta
+
+    python3 /home/analysis/vHULK/vHULK.py \\
+        -i vhulk_input \\
         -o vhulk_out \\
         -t ${task.cpus}
 
-    # Tahmin dosyasını yeniden adlandır
-    cp vhulk_out/output.csv ${meta.id}_vhulk_predictions.tsv 2>/dev/null || \\
-    cp vhulk_out/*.tsv     ${meta.id}_vhulk_predictions.tsv
+    cp vhulk_out/predictions/${meta.id}.csv ${meta.id}_vhulk_predictions.tsv
     """
 }

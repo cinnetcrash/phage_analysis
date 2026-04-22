@@ -255,7 +255,7 @@ workflow {
             VHULK.out.predictions.map   { _m, f -> f }.collect().ifEmpty([])
         )
         .collect()
-        .map { _ -> params.outdir }
+        .map { _ -> file(params.outdir).toAbsolutePath().toString() }
 
     SUMMARY_REPORT(report_trigger)
 }

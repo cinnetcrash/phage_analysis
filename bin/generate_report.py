@@ -87,7 +87,8 @@ def load_tsv(path):
 
 def load_checkv(results_dir):
     data = {}
-    for tsv in Path(results_dir, "checkv").rglob("quality_summary.tsv"):
+    # sadece checkv/<sample>/quality_summary.tsv — iç içe checkv_results/ klasörünü atlat
+    for tsv in Path(results_dir, "checkv").glob("*/quality_summary.tsv"):
         sample = tsv.parent.name
         try:
             data[sample] = load_tsv(tsv)
@@ -98,7 +99,7 @@ def load_checkv(results_dir):
 
 def load_circular(results_dir):
     data = {}
-    for tsv in Path(results_dir, "checkv_filtered").rglob("filtered_circular.tsv"):
+    for tsv in Path(results_dir, "checkv_filtered").glob("*/filtered_circular.tsv"):
         sample = tsv.parent.name
         try:
             data[sample] = load_tsv(tsv)

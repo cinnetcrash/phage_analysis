@@ -27,7 +27,7 @@ process VIRSORTER2 {
         --db-dir ${params.virsorter2_db} \\
         --min-length ${params.min_contig_len} \\
         --include-groups dsDNAphage,NCLDV,RNA,ssDNA,lavidaviridae \\
-        --conda-frontend conda \\
+        --use-conda-off \\
         -j ${task.cpus} \\
         all
     """

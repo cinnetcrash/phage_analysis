@@ -1,0 +1,39 @@
+# Exclude large output and work directories
+results*/
+test_results/
+work/
+
+# Exclude databases (mounted at runtime)
+databases*/
+db*/
+*_db/
+*_database/
+
+# Exclude conda environments
+envs/
+*.tar.bz2
+*.conda
+
+# Exclude git history
+.git/
+.gitignore
+
+# Exclude editor and IDE files
+.vscode/
+.idea/
+*.swp
+*~
+__pycache__/
+*.pyc
+
+# Exclude OS files
+.DS_Store
+Thumbs.db
+
+# Exclude logs
+*.log
+.nextflow.log*
+.nextflow/
+
+# Exclude sample data that shouldn't go into the image
+samplesheet*.csv

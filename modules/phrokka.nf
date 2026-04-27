@@ -15,11 +15,12 @@ process PHROKKA {
     tuple val(meta), path("${meta.id}_cds_final_merged_output.tsv"), optional: true, emit: tsv
 
     script:
+    def db_arg = params.pharokka_db ? "-d ${params.pharokka_db}" : ""
     """
     pharokka.py \\
         -i ${fasta} \\
         -o phrokka_out \\
-        -d /home/analysis/miniconda3/envs/pharokka/databases \\
+        ${db_arg} \\
         -p ${meta.id} \\
         -t ${task.cpus} \\
         --force

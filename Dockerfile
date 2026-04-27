@@ -61,7 +61,7 @@ RUN fastqc --version && \
     fastp --version 2>&1 | head -1 && \
     kraken2 --version | head -1 && \
     spades.py --version && \
-    checkv --version && \
+    checkv -h 2>&1 | head -1 && \
     pharokka.py --version 2>&1 | head -1 && \
     prokka --version 2>&1 | head -1 && \
     nextflow -version | head -3

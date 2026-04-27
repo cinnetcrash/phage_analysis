@@ -1,2 +1,2 @@
 sample_id,host,R1,R2
-ECO111_test,ecoli,/media/analysis/PortableSSD/naim_hoca/phage_nextflow/assets/test_data/test_R1.fastq,/media/analysis/PortableSSD/naim_hoca/phage_nextflow/assets/test_data/test_R2.fastq
+ECO111_test,ecoli,/home/analysis/Desktop/phage_analysis/assets/test_data/test_R1.fastq,/home/analysis/Desktop/phage_analysis/assets/test_data/test_R2.fastq

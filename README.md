@@ -66,43 +66,73 @@ The threshold `N` is configurable via `--min_completeness` (default `90`).
 ### 1. Prerequisites
 
 - **Miniconda** (or Mamba) — [install guide](https://docs.conda.io/en/latest/miniconda.html)
-- **Nextflow** ≥ 23.04 — requires Java 11+
 - **~16 GB free disk** for databases (+ ~270 GB if BLAST nt is needed)
 
+> **Nextflow ve Java bu pipeline'ın conda ortamına dahildir** — ayrı kurulum gerekmez.
+> Sisteminizde yüklü bir Java varsa uyumsuzluk yaşamamak için ortamdaki Java'yı kullanın:
+> ```bash
+> export JAVA_HOME=$CONDA_PREFIX
+> export JAVA_CMD=$CONDA_PREFIX/bin/java
+> ```
+
+### 2. Conda ortamını kur (tek adım)
+
+Pipeline, **tüm araçları tek bir conda ortamında** (`phage_analysis`) çalıştırır.
+Nextflow dahil tüm bağımlılıklar bu ortamda bulunur.
+
 ```bash
-# Install Nextflow (if not already installed)
-curl -s https://get.nextflow.io | bash
-sudo mv nextflow /usr/local/bin/
-
-# Verify
-nextflow -version
-```
-
-### 2. Clone and set up databases
-
-```bash
-# Clone the pipeline
+# Repoyu klonla
 git clone https://github.com/cinnetcrash/phage_analysis.git
 cd phage_analysis
 
-# Install all databases (~16 GB, ~1–2 hours depending on internet speed)
-# The script also installs missing conda environments automatically.
+# Conda ortamını oluştur (~2–5 GB disk, ~10–20 dk)
+conda env create -f environment.yml
+
+# Ortamı aktifleştir
+conda activate phage_analysis
+
+# Nextflow'un ortamdaki Java'yı kullandığından emin ol
+export JAVA_HOME=$CONDA_PREFIX
+export JAVA_CMD=$CONDA_PREFIX/bin/java
+
+# Kontrol
+nextflow -version
+```
+
+> **Mamba ile çok daha hızlı kurulum:**
+> ```bash
+> mamba env create -f environment.yml
+> ```
+
+#### Bilinen sürüm notları
+
+| Araç | Not |
+|------|-----|
+| **bacphlip 0.9.6** | Modelleri scikit-learn 0.23 ile eğitildi; ortamdaki 1.0.x ile `InconsistentVersionWarning` verebilir. Tahminler çalışır. |
+| **vHULK** | TensorFlow 2.9 (Python 3.9 uyumlu) ile çalışır; TF 2.8 modelleri geriye dönük uyumludur. |
+| **vContact2** | networkx 2.x API'si gerektirir; `networkx>=2.7,<3.0` ile sabitlenmiştir. |
+| **VirSorter2** | DB kurulumu için `virsorter setup -d <db_dir> -j <threads>` komutu gerekmektedir. |
+
+### 3. Veritabanlarını kur
+
+```bash
+# Tüm veritabanları (~16 GB, ~1–2 saat)
 bash bin/setup_databases.sh --db-dir ~/phage_databases --threads 8
 ```
 
-At the end, the script prints the exact `nextflow run` command with all paths pre-filled.
+Komut tamamlandığında, tüm yollar önceden doldurulmuş `nextflow run` komutu ekrana yazdırılır.
 
-**What gets installed:**
+**Kurulacaklar:**
 
-| Database | Size | Purpose |
-|----------|------|---------|
-| Kraken2 viral | ~8 GB | Taxonomic classification |
-| VirSorter2 | ~3 GB | Viral sequence detection |
-| CheckV | ~3 GB | Genome quality assessment |
-| Pharokka | ~2 GB | Phage annotation (E. coli phages) |
-| BLAST nt | ~270 GB | Nucleotide identity *(optional — `--install-blast`)* |
+| Veritabanı | Boyut | Amaç |
+|------------|-------|-------|
+| Kraken2 viral | ~8 GB | Taksonomik sınıflandırma |
+| VirSorter2 | ~3 GB | Viral sekans tespiti |
+| CheckV | ~3 GB | Genom kalitesi değerlendirme |
+| Pharokka | ~2 GB | Faj anotasyonu (E. coli fajları) |
+| BLAST nt | ~270 GB | Nükleotid kimliği *(opsiyonel — `--install-blast`)* |
 
-**Already have some databases?** Skip them:
+**Bazı veritabanları zaten kuruluysa** atla:
 ```bash
 bash bin/setup_databases.sh \
     --db-dir ~/phage_databases \
@@ -110,20 +140,20 @@ bash bin/setup_databases.sh \
     --threads 8
 ```
 
-**Preview without installing:**
+**Kurulum yapmadan önizle:**
 ```bash
 bash bin/setup_databases.sh --db-dir ~/phage_databases --dry-run
 ```
 
-### 3. Prepare your samplesheet
+### 4. Örnek tablosunu hazırla
 
-Copy and edit the template:
+Şablonu kopyala ve düzenle:
 
 ```bash
 cp assets/samplesheet_template.csv my_samples.csv
 ```
 
-Format (CSV with header row):
+Format (başlık satırlı CSV):
 
 ```csv
 sample_id,host,R1,R2
@@ -131,13 +161,14 @@ ECO111_S1,ecoli,/data/ECO111_S1_R1_001.fastq.gz,/data/ECO111_S1_R2_001.fastq.gz
 LM-11_S16,listeria,/data/LM-11_S16_R1_001.fastq,/data/LM-11_S16_R2_001.fastq
 ```
 
-Valid `host` values: `ecoli` · `listeria` · `salmonella` · `enterococcus` · `staphylococcus`
+Geçerli `host` değerleri: `ecoli` · `listeria` · `salmonella` · `enterococcus` · `staphylococcus`
 
-### 4. Run
+### 5. Çalıştır
 
 ```bash
+# Tek ortam profili ile (önerilen)
 nextflow run cinnetcrash/phage_analysis \
-    -profile conda \
+    -profile conda_unified \
     --samplesheet my_samples.csv \
     --kraken2_db  /path/to/kraken2_db \
     --virsorter2_db /path/to/virsorter2_db \
@@ -145,7 +176,7 @@ nextflow run cinnetcrash/phage_analysis \
     --outdir      results
 ```
 
-To resume after interruption:
+Kesintiden sonra kaldığı yerden devam et:
 
 ```bash
 nextflow run cinnetcrash/phage_analysis ... -resume
@@ -181,13 +212,15 @@ nextflow run cinnetcrash/phage_analysis ... -resume
 
 ## Profiles
 
-| Profile | Description |
-|---------|-------------|
-| `conda` | Creates per-process conda environments (recommended) |
-| `docker` | Uses Docker containers |
-| `singularity` | Uses Singularity containers (HPC-friendly) |
-| `slurm` | Submits jobs to a SLURM scheduler |
-| `test` | Runs bundled test data (no databases required) |
+| Profil | Açıklama |
+|--------|----------|
+| `conda_unified` | **Önerilen** — tek `phage_analysis` conda ortamı (`environment.yml`) |
+| `conda` | Her adım için ayrı conda ortamları (eski davranış) |
+| `docker` | Docker container'ları |
+| `singularity` | Singularity container'ları (HPC uyumlu) |
+| `slurm` | SLURM zamanlayıcısına iş gönderir |
+| `test` | Dahili test verisiyle çalışır |
+| `test_local` | Yerel sistem kurulumunu kullanır (`conf/test_local.config`) |
 
 ---
 

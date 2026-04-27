@@ -1,0 +1,49 @@
+{% set version = "2.0.0" %}
+
+package:
+  name: vhulk
+  version: {{ version }}
+
+source:
+  url: https://github.com/LaboratorioBioinformatica/vHULK/archive/refs/heads/master.tar.gz
+  sha256: 7106b1f050120dd2e75504c1fc8d804222a60a40ca7d8299ca221ef39cc6fde4
+
+build:
+  number: 0
+  noarch: python
+
+requirements:
+  host:
+    - python >=3.7,<3.10
+    - pip
+  run:
+    - python >=3.7,<3.10
+    - numpy >=1.21,<2
+    - pandas >=1.3,<2
+    - biopython >=1.78
+    - scipy >=1.7
+    - scikit-learn >=1.0,<1.1
+    - tensorflow >=2.8,<2.10
+    - keras >=2.8,<2.10
+    - hmmer >=3.3
+    - prodigal >=2.6
+
+test:
+  commands:
+    - vHULK.py --help
+
+about:
+  home: https://github.com/LaboratorioBioinformatica/vHULK
+  license: MIT
+  license_family: MIT
+  summary: "Viral Host Unveiling Kit — phage host range prediction using deep learning"
+  description: |
+    vHULK predicts the bacterial host of bacteriophages from genome sequences
+    using neural network models trained on NCBI RefSeq phage genomes.
+    Database must be downloaded separately: see README for instructions.
+  doc_url: https://github.com/LaboratorioBioinformatica/vHULK/blob/master/README.md
+  dev_url: https://github.com/LaboratorioBioinformatica/vHULK
+
+extra:
+  recipe-maintainers:
+    - cinnetcrash

@@ -1,22 +1,23 @@
-# phage_analysis — tek conda ortamı
-# Hedef: Python 3.9 (tüm araçlar için en uyumlu ortak sürüm)
+# phage_analysis — single conda environment
+# Target: Python 3.9 (best common ground across all tools)
 #
-# Kurulum:
-#   conda env create -f environment.yml
+# Install:
+#   conda env create -f environment.yml   (or: mamba env create -f environment.yml)
 #   conda activate phage_analysis
 #
-# Bilinen sürüm notları:
-#   - bacphlip 0.9.6: modelleri sklearn 0.23 ile eğitildi; sklearn >=1.0 ile
-#     çalışır ancak "InconsistentVersionWarning" uyarısı verebilir.
-#   - vHULK: tensorflow 2.9 (Python 3.9 uyumlu) gerektirir.
-#   - VirSorter2: bioconda'dan yüklenir; DB için ayrıca
-#     "virsorter setup -d <db_dir> -j <threads>" çalıştırılmalıdır.
-#   - Nextflow: Java 17 bu ortamdan gelir; sistem Java'sı 11 ise
-#     JAVA_HOME ve JAVA_CMD bu ortamın bin dizinine yönlendirilmelidir.
+# Version notes:
+#   - bacphlip 0.9.6: conda package hard-pins scikit-learn 0.23.1, which conflicts
+#     with vContact2. Installed via pip instead — predictions still work with sklearn 1.x.
+#   - virsorter (VirSorter2): bioconda package name is 'virsorter', not 'virsorter2'.
+#     DB setup: run 'virsorter setup -d <db_dir> -j <threads>' after install.
+#   - vHULK: not in bioconda; installed via pip. Requires TensorFlow 2.9 (py3.9 compat).
+#   - vContact2: requires networkx 2.x API; pinned to networkx>=2.7,<3.0.
+#   - Nextflow: Java 17 comes from this environment. Set JAVA_HOME=$CONDA_PREFIX.
 
 name: phage_analysis
 
 channels:
+  - gultekinunal
   - conda-forge
   - bioconda
   - defaults
@@ -29,42 +30,37 @@ dependencies:
   - openjdk=17
   - nextflow>=23.04.0
 
-  # ── Kalite kontrol ve kırpma ──────────────────────────────────────────────────
+  # ── QC & trimming ─────────────────────────────────────────────────────────────
   - fastqc=0.12.1
   - fastp>=0.23
   - multiqc>=1.21
 
-  # ── Taksonomik sınıflandırma ──────────────────────────────────────────────────
+  # ── Taxonomic classification ──────────────────────────────────────────────────
   - kraken2=2.1.3
 
-  # ── Montaj ───────────────────────────────────────────────────────────────────
+  # ── Assembly ──────────────────────────────────────────────────────────────────
   - spades>=4.0
 
-  # ── Viral sekans tespiti ──────────────────────────────────────────────────────
-  - virsorter2=2.2.4
+  # ── Viral sequence detection (package name: virsorter, not virsorter2) ────────
+  - virsorter=2.2.4
 
-  # ── Genom kalitesi ────────────────────────────────────────────────────────────
+  # ── Genome quality ────────────────────────────────────────────────────────────
   - checkv=1.0.1
 
-  # ── Yaşam döngüsü tahmini ────────────────────────────────────────────────────
-  - bacphlip=0.9.6
-  # sklearn: bacphlip 0.23.1 ister; 1.0.x uyarı verir ancak tahminler çalışır
-  - scikit-learn>=1.0,<1.2
-
-  # ── Anotasyon ────────────────────────────────────────────────────────────────
+  # ── Annotation ────────────────────────────────────────────────────────────────
   - pharokka>=1.7.3
   - prokka=1.14.6
 
-  # ── Viral taksonomi kümeleme ──────────────────────────────────────────────────
+  # ── Viral taxonomy clustering ─────────────────────────────────────────────────
   - vcontact2=0.11.3
   - clusterone=1.0
   - networkx>=2.7,<3.0
 
-  # ── Konak tahmini (vHULK için TF) ────────────────────────────────────────────
-  - tensorflow>=2.9,<2.13   # Python 3.9 ile uyumlu; vHULK modellerini destekler
+  # ── Host prediction (TensorFlow for vHULK) ────────────────────────────────────
+  - tensorflow>=2.9,<2.13
   - keras>=2.9,<2.13
 
-  # ── Ortak biyoinformatik araçlar ──────────────────────────────────────────────
+  # ── Shared bioinformatics tools ───────────────────────────────────────────────
   - blast=2.15.0
   - diamond>=2.1
   - hmmer>=3.4
@@ -74,16 +70,19 @@ dependencies:
   - trnascan-se>=2.0
   - minced>=0.4
 
-  # ── Python kütüphaneleri ──────────────────────────────────────────────────────
+  # ── Python libraries ──────────────────────────────────────────────────────────
   - biopython>=1.79
   - numpy>=1.21,<2.0
   - pandas>=1.3,<2.0
   - scipy>=1.7
   - matplotlib-base>=3.5
   - pyhmmer>=0.10
+  - scikit-learn>=1.0,<1.2
 
-  # ── pip kurulumları (bioconda'da bulunmayanlar) ───────────────────────────────
+  # ── vHULK (gultekinunal conda channel) ───────────────────────────────────────
+  - vhulk=2.0.0
+
+  # ── pip installs ──────────────────────────────────────────────────────────────
+  # bacphlip: installed via "conda install --no-deps" in Dockerfile to bypass the
+  #   hard sklearn 0.23.1 pin in the bioconda recipe. See Dockerfile for details.
   - pip
-  - pip:
-      # vHULK: bioconda paketinde yok; GitHub/PyPI üzerinden
-      - vhulk==1.0.0

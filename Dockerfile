@@ -27,6 +27,7 @@ RUN apt-get update && \
         unzip \
         pigz \
         less \
+        git \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -37,8 +38,11 @@ RUN mamba env create -f /tmp/environment.yml && \
     mamba clean --all --yes && \
     rm /tmp/environment.yml
 
-# ── vHULK (not in bioconda — install via pip into the environment) ─────────────
-RUN /opt/conda/envs/phage_analysis/bin/pip install --no-cache-dir vhulk==1.0.0
+# ── vHULK (from gultekinunal conda channel) ───────────────────────────────────
+RUN /opt/conda/bin/conda install -n phage_analysis -y \
+        -c gultekinunal -c conda-forge -c bioconda \
+        vhulk=2.0.0 && \
+    /opt/conda/bin/conda clean --all -y
 
 # ── PATH and Java configuration ────────────────────────────────────────────────
 ENV PATH="/opt/conda/envs/phage_analysis/bin:${PATH}"

@@ -1,5 +1,5 @@
 /*
-  vHULK – makine öğrenmesi tabanlı faj-konak tahmini
+  vHULK — machine-learning based phage host prediction
 */
 process VHULK {
     tag "${meta.id}"
@@ -12,14 +12,15 @@ process VHULK {
     tuple val(meta), path("${meta.id}_vhulk_predictions.tsv"), emit: predictions
 
     script:
+    def db_arg = params.vhulk_db ? "-d ${params.vhulk_db}" : ""
     """
-    # vHULK -i dizin bekliyor; .fa/.fasta uzantısı gerekli
     mkdir -p vhulk_input
     cp ${fasta} vhulk_input/${meta.id}.fasta
 
-    python3 /home/analysis/vHULK/vHULK.py \\
+    vHULK.py \\
         -i vhulk_input \\
         -o vhulk_out \\
+        ${db_arg} \\
         -t ${task.cpus}
 
     cp vhulk_out/predictions/${meta.id}.csv ${meta.id}_vhulk_predictions.tsv

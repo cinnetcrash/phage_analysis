@@ -3,34 +3,38 @@
 #  phage_analysis — Database Setup Script
 #  https://github.com/cinnetcrash/phage_analysis
 #
-#  Kullanım:
-#    bash bin/setup_databases.sh --db-dir /path/to/databases [seçenekler]
+#  Usage:
+#    bash bin/setup_databases.sh --db-dir /path/to/databases [options]
 #
-#  Kurulacak veritabanları:
+#  Databases installed:
 #    1. Kraken2      (~8 GB  — viral library)
 #    2. VirSorter2   (~3 GB)
 #    3. CheckV       (~3 GB)
 #    4. Pharokka     (~2 GB)
-#    5. BLAST nt     (~270 GB — opsiyonel, çok büyük)
+#    5. vHULK        (~2 GB  — neural network models)
+#    6. BLAST nt     (~270 GB — optional, very large)
 #
-#  Toplam (BLAST hariç): ~16 GB disk alanı gerekir.
+#  Total (without BLAST): ~18 GB disk space required.
 #
-#  Ön koşul: Miniconda / Mamba kurulu olmalı.
-#    https://docs.conda.io/en/latest/miniconda.html
+#  Prerequisite: conda environment 'phage_analysis' must be created first:
+#    conda env create -f environment.yml
+#    conda activate phage_analysis
 # =============================================================================
 set -euo pipefail
 
-# ── Varsayılanlar ─────────────────────────────────────────────────────────────
+# ── Defaults ──────────────────────────────────────────────────────────────────
 DB_DIR=""
 THREADS=8
+ENV_NAME="phage_analysis"
 SKIP_KRAKEN2=false
 SKIP_VIRSORTER2=false
 SKIP_CHECKV=false
 SKIP_PHAROKKA=false
+SKIP_VHULK=false
 INSTALL_BLAST=false
 DRY_RUN=false
 
-# ── Renk kodları ──────────────────────────────────────────────────────────────
+# ── Colours ───────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 
@@ -40,27 +44,30 @@ warn()    { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 error()   { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
 header()  { echo -e "\n${BOLD}${CYAN}=== $* ===${NC}"; }
 
-# ── Argüman ayrıştırma ────────────────────────────────────────────────────────
+# ── Argument parsing ──────────────────────────────────────────────────────────
 usage() {
     cat <<EOF
-Kullanım: bash bin/setup_databases.sh --db-dir /path/to/databases [seçenekler]
+Usage: bash bin/setup_databases.sh --db-dir /path/to/databases [options]
 
-Zorunlu:
-  --db-dir PATH         Veritabanlarının kurulacağı ana dizin
+Required:
+  --db-dir PATH         Directory where databases will be installed
 
-Seçenekler:
-  --threads N           Paralel iş sayısı (varsayılan: 8)
-  --skip-kraken2        Kraken2 DB kurulumunu atla
-  --skip-virsorter2     VirSorter2 DB kurulumunu atla
-  --skip-checkv         CheckV DB kurulumunu atla
-  --skip-pharokka       Pharokka DB kurulumunu atla
-  --install-blast       BLAST nt DB'yi kur (~270 GB, uzun sürer)
-  --dry-run             Sadece ne yapılacağını göster, kurma
-  -h, --help            Bu yardım mesajını göster
+Options:
+  --threads N           Number of parallel threads (default: 8)
+  --env NAME            Conda environment name (default: phage_analysis)
+  --skip-kraken2        Skip Kraken2 DB
+  --skip-virsorter2     Skip VirSorter2 DB
+  --skip-checkv         Skip CheckV DB
+  --skip-pharokka       Skip Pharokka DB
+  --skip-vhulk          Skip vHULK DB
+  --install-blast       Install BLAST nt DB (~270 GB, takes hours)
+  --dry-run             Show what would be done without doing it
+  -h, --help            Show this help message
 
-Örnek:
-  bash bin/setup_databases.sh --db-dir ~/databases --threads 12
-  bash bin/setup_databases.sh --db-dir ~/databases --skip-kraken2 --install-blast
+Examples:
+  bash bin/setup_databases.sh --db-dir ~/phage_databases --threads 12
+  bash bin/setup_databases.sh --db-dir ~/phage_databases --skip-kraken2
+  bash bin/setup_databases.sh --db-dir ~/phage_databases --install-blast
 EOF
     exit 0
 }
@@ -69,20 +76,22 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --db-dir)          DB_DIR="$2";           shift 2 ;;
         --threads)         THREADS="$2";          shift 2 ;;
+        --env)             ENV_NAME="$2";         shift 2 ;;
         --skip-kraken2)    SKIP_KRAKEN2=true;     shift ;;
         --skip-virsorter2) SKIP_VIRSORTER2=true;  shift ;;
         --skip-checkv)     SKIP_CHECKV=true;      shift ;;
         --skip-pharokka)   SKIP_PHAROKKA=true;    shift ;;
+        --skip-vhulk)      SKIP_VHULK=true;       shift ;;
         --install-blast)   INSTALL_BLAST=true;    shift ;;
         --dry-run)         DRY_RUN=true;          shift ;;
         -h|--help)         usage ;;
-        *) error "Bilinmeyen argüman: $1  (--help için yardıma bakın)" ;;
+        *) error "Unknown argument: $1  (use --help for usage)" ;;
     esac
 done
 
-[[ -z "$DB_DIR" ]] && error "--db-dir zorunludur. Kullanım için: bash $0 --help"
+[[ -z "$DB_DIR" ]] && error "--db-dir is required. Run: bash $0 --help"
 
-# ── Dry-run sarmalayıcı ───────────────────────────────────────────────────────
+# ── Dry-run wrapper ───────────────────────────────────────────────────────────
 run() {
     if $DRY_RUN; then
         echo -e "  ${YELLOW}[dry-run]${NC} $*"
@@ -91,7 +100,7 @@ run() {
     fi
 }
 
-# ── Başlangıç özeti ───────────────────────────────────────────────────────────
+# ── Banner ────────────────────────────────────────────────────────────────────
 echo -e "${BOLD}"
 cat <<'BANNER'
   ____  _                              _               _
@@ -104,81 +113,61 @@ cat <<'BANNER'
 BANNER
 echo -e "${NC}"
 
-info "Veritabanı dizini : ${DB_DIR}"
-info "Thread sayısı     : ${THREADS}"
-$DRY_RUN && warn "DRY-RUN modu aktif — hiçbir şey kurulmayacak."
+info "Database directory : ${DB_DIR}"
+info "Conda environment  : ${ENV_NAME}"
+info "Threads            : ${THREADS}"
+$DRY_RUN && warn "DRY-RUN mode — nothing will actually be installed."
 
 # =============================================================================
-# Conda varlık kontrolü
+# Prerequisite: verify conda and phage_analysis env
 # =============================================================================
-header "Ön Koşul Kontrolü"
+header "Checking prerequisites"
 
+# Find conda/mamba
 CONDA_CMD=""
 if command -v mamba &>/dev/null; then
     CONDA_CMD="mamba"
-    success "mamba bulundu: $(command -v mamba)"
+    success "mamba found: $(command -v mamba)"
 elif command -v conda &>/dev/null; then
     CONDA_CMD="conda"
-    success "conda bulundu: $(command -v conda)"
+    success "conda found: $(command -v conda)"
 else
-    error "conda/mamba bulunamadı. Lütfen Miniconda kurun: https://docs.conda.io/en/latest/miniconda.html"
+    error "conda/mamba not found. Install Miniconda: https://docs.conda.io/en/latest/miniconda.html"
 fi
 
-# conda init kaynağı
+# Source conda init
 CONDA_BASE=$(${CONDA_CMD} info --base 2>/dev/null || echo "")
-if [[ -f "${CONDA_BASE}/etc/profile.d/conda.sh" ]]; then
-    source "${CONDA_BASE}/etc/profile.d/conda.sh"
+[[ -f "${CONDA_BASE}/etc/profile.d/conda.sh" ]] && source "${CONDA_BASE}/etc/profile.d/conda.sh"
+
+# Verify phage_analysis env exists
+if ! conda env list 2>/dev/null | grep -qE "^${ENV_NAME}[[:space:]]"; then
+    error "Conda environment '${ENV_NAME}' not found.
+  Please create it first:
+    conda env create -f environment.yml
+    # or: mamba env create -f environment.yml"
 fi
+success "Conda environment '${ENV_NAME}' found."
 
-# ── Her araç için conda env oluştur (yoksa) ──────────────────────────────────
-# Araçları PATH veya belirli env üzerinden çalıştıran yardımcı fonksiyon
-ensure_env() {
-    local env_name="$1"
-    local pkg_spec="$2"   # örn: "bioconda::kraken2"
-    local test_cmd="$3"   # kurulu olup olmadığını test eden komut
-
-    if conda env list 2>/dev/null | grep -qE "^${env_name}[[:space:]]"; then
-        success "conda env '${env_name}' zaten mevcut."
-        return 0
-    fi
-
-    info "conda env '${env_name}' oluşturuluyor (${pkg_spec})..."
-    run ${CONDA_CMD} create -y -n "${env_name}" -c bioconda -c conda-forge \
-        ${pkg_spec} 2>&1 | grep -v "^$" | tail -5
-    success "conda env '${env_name}' hazır."
-}
-
+NF_RUN="conda run -n ${ENV_NAME}"
 run mkdir -p "${DB_DIR}"
 
 # =============================================================================
 # 1. Kraken2 DB
 # =============================================================================
 if ! $SKIP_KRAKEN2; then
-    header "1/4 · Kraken2 Viral Database (~8 GB)"
+    header "1/5 · Kraken2 Viral Database (~8 GB)"
     K2_DIR="${DB_DIR}/kraken2_db"
 
     if [[ -f "${K2_DIR}/taxo.k2d" ]]; then
-        success "Kraken2 DB zaten kurulu: ${K2_DIR}"
+        success "Kraken2 DB already installed: ${K2_DIR}"
     else
-        # Araç yoksa kur
-        if ! command -v kraken2-build &>/dev/null; then
-            if conda env list 2>/dev/null | grep -qE "^kraken2[[:space:]]"; then
-                info "kraken2 env mevcut, kullanılıyor."
-            else
-                ensure_env "kraken2" "kraken2" "kraken2-build"
-            fi
-            K2_RUN="conda run -n kraken2"
-        else
-            K2_RUN=""
-        fi
-
-        info "Kraken2 viral DB indiriliyor → ${K2_DIR}"
-        info "İnternet hızına göre 30–60 dakika sürebilir."
+        info "Downloading Kraken2 viral DB → ${K2_DIR}"
+        info "This may take 30–60 minutes depending on internet speed."
         run mkdir -p "${K2_DIR}"
-        run ${K2_RUN} kraken2-build --download-taxonomy --db "${K2_DIR}" --threads "${THREADS}"
-        run ${K2_RUN} kraken2-build --download-library viral --db "${K2_DIR}" --threads "${THREADS}"
-        run ${K2_RUN} kraken2-build --build --db "${K2_DIR}" --threads "${THREADS}"
-        success "Kraken2 DB kuruldu: ${K2_DIR}"
+        run ${NF_RUN} kraken2-build --download-taxonomy --db "${K2_DIR}" --threads "${THREADS}"
+        run ${NF_RUN} kraken2-build --download-library viral --db "${K2_DIR}" --threads "${THREADS}"
+        run ${NF_RUN} kraken2-build --build --db "${K2_DIR}" --threads "${THREADS}"
+        success "Kraken2 DB installed: ${K2_DIR}"
     fi
 fi
 
@@ -186,25 +175,19 @@ fi
 # 2. VirSorter2 DB
 # =============================================================================
 if ! $SKIP_VIRSORTER2; then
-    header "2/4 · VirSorter2 Database (~3 GB)"
+    header "2/5 · VirSorter2 Database (~3 GB)"
     VS2_DIR="${DB_DIR}/virsorter2_db"
 
     if [[ -d "${VS2_DIR}/group" ]]; then
-        success "VirSorter2 DB zaten kurulu: ${VS2_DIR}"
+        success "VirSorter2 DB already installed: ${VS2_DIR}"
     else
-        # Araç yoksa kur
-        if ! conda env list 2>/dev/null | grep -qE "^vs2[[:space:]]"; then
-            ensure_env "vs2" "virsorter2" "virsorter"
-        fi
-
-        info "VirSorter2 DB indiriliyor → ${VS2_DIR}"
+        info "Downloading VirSorter2 DB → ${VS2_DIR}"
         run mkdir -p "${VS2_DIR}"
-        run conda run -n vs2 virsorter setup \
+        run ${NF_RUN} virsorter setup \
             -d "${VS2_DIR}" \
             -j "${THREADS}" \
-            --skip-deps-install \
-            --conda-frontend conda
-        success "VirSorter2 DB kuruldu: ${VS2_DIR}"
+            --skip-deps-install
+        success "VirSorter2 DB installed: ${VS2_DIR}"
     fi
 fi
 
@@ -212,24 +195,18 @@ fi
 # 3. CheckV DB
 # =============================================================================
 if ! $SKIP_CHECKV; then
-    header "3/4 · CheckV Database (~3 GB)"
+    header "3/5 · CheckV Database (~3 GB)"
     CV_DIR="${DB_DIR}/checkv_db"
 
-    if [[ -d "${CV_DIR}/checkv-db-v1.5" ]] || \
-       [[ -f "${CV_DIR}/genome_db/checkv_reps.dmnd" ]]; then
-        success "CheckV DB zaten kurulu: ${CV_DIR}"
+    if [[ -f "${CV_DIR}/genome_db/checkv_reps.dmnd" ]] || \
+       [[ -d "${CV_DIR}/checkv-db-v1.5" ]]; then
+        success "CheckV DB already installed: ${CV_DIR}"
     else
-        # Araç yoksa kur
-        if ! conda env list 2>/dev/null | grep -qE "^checkv[[:space:]]"; then
-            ensure_env "checkv" "checkv" "checkv"
-        fi
-
-        info "CheckV DB indiriliyor → ${CV_DIR}"
+        info "Downloading CheckV DB → ${CV_DIR}"
         run mkdir -p "${CV_DIR}"
-        run conda run -n checkv checkv download_database "${CV_DIR}"
-
+        run ${NF_RUN} checkv download_database "${CV_DIR}"
         CV_SUB=$(ls -d "${CV_DIR}"/checkv-db-* 2>/dev/null | head -1 || echo "${CV_DIR}")
-        success "CheckV DB kuruldu: ${CV_SUB}"
+        success "CheckV DB installed: ${CV_SUB}"
     fi
 fi
 
@@ -237,69 +214,85 @@ fi
 # 4. Pharokka DB
 # =============================================================================
 if ! $SKIP_PHAROKKA; then
-    header "4/4 · Pharokka Database (~2 GB)"
+    header "4/5 · Pharokka Database (~2 GB)"
     PH_DIR="${DB_DIR}/pharokka_db"
 
     if [[ -f "${PH_DIR}/all_phrogs.h3m" ]]; then
-        success "Pharokka DB zaten kurulu: ${PH_DIR}"
+        success "Pharokka DB already installed: ${PH_DIR}"
     else
-        # Araç yoksa kur
-        if ! conda env list 2>/dev/null | grep -qE "^pharokka[[:space:]]"; then
-            ensure_env "pharokka" "pharokka" "pharokka.py"
-        fi
-
-        info "Pharokka DB indiriliyor → ${PH_DIR}"
+        info "Downloading Pharokka DB → ${PH_DIR}"
         run mkdir -p "${PH_DIR}"
-        run conda run -n pharokka install_databases.py -o "${PH_DIR}"
-        success "Pharokka DB kuruldu: ${PH_DIR}"
+        run ${NF_RUN} install_databases.py -o "${PH_DIR}"
+        success "Pharokka DB installed: ${PH_DIR}"
     fi
 fi
 
 # =============================================================================
-# 5. BLAST nt (opsiyonel, ~270 GB)
+# 5. vHULK DB
+# =============================================================================
+if ! $SKIP_VHULK; then
+    header "5/5 · vHULK Database (~2 GB)"
+    VHULK_DIR="${DB_DIR}/vhulk_db"
+
+    if [[ -f "${VHULK_DIR}/all_vogs_hmm_profiles.hmm.h3m" ]]; then
+        success "vHULK DB already installed: ${VHULK_DIR}"
+    else
+        info "Downloading vHULK database → ${VHULK_DIR}"
+        info "Source: github.com/LaboratorioBioinformatica/vHULK (database_Aug_2022.tar.gz)"
+        run mkdir -p "${VHULK_DIR}"
+        run curl -L \
+            "https://github.com/LaboratorioBioinformatica/vHULK/raw/master/database_Aug_2022.tar.gz" \
+            -o "${VHULK_DIR}/database_Aug_2022.tar.gz"
+        run tar -xzf "${VHULK_DIR}/database_Aug_2022.tar.gz" \
+            -C "${VHULK_DIR}" --strip-components=1
+        run rm "${VHULK_DIR}/database_Aug_2022.tar.gz"
+        success "vHULK DB installed: ${VHULK_DIR}"
+    fi
+fi
+
+# =============================================================================
+# 6. BLAST nt (optional, ~270 GB)
 # =============================================================================
 if $INSTALL_BLAST; then
-    header "5/5 · BLAST nt Database (~270 GB — uzun sürer!)"
+    header "6/6 · BLAST nt Database (~270 GB — this will take hours)"
     BL_DIR="${DB_DIR}/blast_db"
-    warn "BLAST nt indirme işlemi saatler sürebilir ve ~270 GB disk gerektirir."
+    warn "BLAST nt download requires ~270 GB disk and several hours."
 
     if [[ -f "${BL_DIR}/nt.nal" ]]; then
-        success "BLAST nt DB zaten kurulu: ${BL_DIR}"
+        success "BLAST nt DB already installed: ${BL_DIR}"
     else
-        if ! command -v update_blastdb.pl &>/dev/null; then
-            ensure_env "blast" "blast" "blastn"
-            BLAST_RUN="conda run -n blast"
-        else
-            BLAST_RUN=""
-        fi
+        info "Downloading BLAST nt DB → ${BL_DIR}"
         run mkdir -p "${BL_DIR}"
-        run "cd '${BL_DIR}' && ${BLAST_RUN} update_blastdb.pl --decompress --num_threads ${THREADS} nt"
-        success "BLAST DB kuruldu: ${BL_DIR}"
+        run "cd '${BL_DIR}' && ${NF_RUN} update_blastdb.pl --decompress --num_threads ${THREADS} nt"
+        success "BLAST nt DB installed: ${BL_DIR}"
     fi
 fi
 
 # =============================================================================
-# Özet ve hazır komut
+# Summary — ready-to-run command
 # =============================================================================
-header "Kurulum Tamamlandı"
+header "Setup complete!"
 
-echo ""
-echo -e "${BOLD}Aşağıdaki komutu kopyalayıp çalıştırabilirsiniz:${NC}"
-echo ""
-echo -e "${GREEN}nextflow run cinnetcrash/phage_analysis \\${NC}"
-echo -e "${GREEN}    -profile conda \\${NC}"
-echo -e "${GREEN}    --samplesheet samplesheet.csv \\${NC}"
-
-$SKIP_KRAKEN2    || echo -e "${GREEN}    --kraken2_db    ${DB_DIR}/kraken2_db \\${NC}"
-$SKIP_VIRSORTER2 || echo -e "${GREEN}    --virsorter2_db ${DB_DIR}/virsorter2_db \\${NC}"
-
-if ! $SKIP_CHECKV; then
-    CV_SUB=$(ls -d "${DB_DIR}/checkv_db"/checkv-db-* 2>/dev/null | head -1 \
-             || echo "${DB_DIR}/checkv_db")
-    echo -e "${GREEN}    --checkv_db     ${CV_SUB} \\${NC}"
+# Resolve checkv subdir
+CV_ACTUAL="${DB_DIR}/checkv_db"
+if ls -d "${DB_DIR}/checkv_db"/checkv-db-* &>/dev/null 2>&1; then
+    CV_ACTUAL=$(ls -d "${DB_DIR}/checkv_db"/checkv-db-* | head -1)
 fi
 
-$INSTALL_BLAST && echo -e "${GREEN}    --blast_db      ${DB_DIR}/blast_db/nt \\${NC}"
+echo ""
+echo -e "${BOLD}Copy and run the following command:${NC}"
+echo ""
+echo -e "${GREEN}conda activate ${ENV_NAME}${NC}"
+echo -e "${GREEN}export JAVA_HOME=\$CONDA_PREFIX${NC}"
+echo -e "${GREEN}export JAVA_CMD=\$CONDA_PREFIX/bin/java${NC}"
+echo ""
+echo -e "${GREEN}nextflow run cinnetcrash/phage_analysis \\${NC}"
+echo -e "${GREEN}    -profile conda_unified \\${NC}"
+echo -e "${GREEN}    --samplesheet samplesheet.csv \\${NC}"
+$SKIP_KRAKEN2    || echo -e "${GREEN}    --kraken2_db    ${DB_DIR}/kraken2_db \\${NC}"
+$SKIP_VIRSORTER2 || echo -e "${GREEN}    --virsorter2_db ${DB_DIR}/virsorter2_db \\${NC}"
+$SKIP_CHECKV     || echo -e "${GREEN}    --checkv_db     ${CV_ACTUAL} \\${NC}"
+$INSTALL_BLAST   && echo -e "${GREEN}    --blast_db      ${DB_DIR}/blast_db/nt \\${NC}"
 echo -e "${GREEN}    --outdir        results${NC}"
 echo ""
-success "Her şey hazır!"
+success "All done!"

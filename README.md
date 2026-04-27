@@ -175,6 +175,7 @@ The script prints the exact `nextflow run` command with all paths pre-filled whe
 | VirSorter2 | ~3 GB | Viral sequence detection |
 | CheckV | ~3 GB | Genome quality assessment |
 | Pharokka | ~2 GB | Phage annotation (E. coli phages) |
+| vHULK | ~2 GB | Host prediction models |
 | BLAST nt | ~270 GB | Nucleotide identity *(optional — `--install-blast`)* |
 
 **Already have some databases?** Skip them:
@@ -227,6 +228,7 @@ Valid `host` values: `ecoli` · `listeria` · `salmonella` · `enterococcus` · 
 |-----------|---------|-------------|
 | `--outdir` | `results` | Output directory |
 | `--blast_db` | *(none)* | BLAST database path — BLAST skipped if omitted |
+| `--vhulk_db` | *(none)* | vHULK database directory — uses tool default if omitted |
 | `--vcontact2_db` | `ProkaryoticViralRefSeq94-Merged` | vContact2 reference DB name |
 | `--min_contig_len` | `1000` | Minimum contig length (bp) |
 | `--min_completeness` | `90` | CheckV completeness threshold (%) for DTR/ITR genomes |

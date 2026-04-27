@@ -238,11 +238,11 @@ if ! $SKIP_VHULK; then
         success "vHULK DB already installed: ${VHULK_DIR}"
     else
         info "Downloading vHULK database → ${VHULK_DIR}"
-        info "Source: github.com/LaboratorioBioinformatica/vHULK (database_Aug_2022.tar.gz)"
+        info "Source: projetos.lbi.iq.usp.br (official vHULK server, ~2 GB)"
         run mkdir -p "${VHULK_DIR}"
-        run curl -L \
-            "https://github.com/LaboratorioBioinformatica/vHULK/raw/master/database_Aug_2022.tar.gz" \
-            -o "${VHULK_DIR}/database_Aug_2022.tar.gz"
+        run wget -q \
+            "http://projetos.lbi.iq.usp.br/phaghost/vHULK/database_Aug_2022.tar.gz" \
+            -O "${VHULK_DIR}/database_Aug_2022.tar.gz"
         run tar -xzf "${VHULK_DIR}/database_Aug_2022.tar.gz" \
             -C "${VHULK_DIR}" --strip-components=1
         run rm "${VHULK_DIR}/database_Aug_2022.tar.gz"

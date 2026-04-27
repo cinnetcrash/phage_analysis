@@ -12,7 +12,7 @@ process VHULK {
     tuple val(meta), path("${meta.id}_vhulk_predictions.tsv"), emit: predictions
 
     script:
-    def db_arg = params.vhulk_db ? "-d ${params.vhulk_db}" : ""
+    def db_arg = params.vhulk_db ? "-m ${params.vhulk_db}" : ""
     """
     mkdir -p vhulk_input
     cp ${fasta} vhulk_input/${meta.id}.fasta

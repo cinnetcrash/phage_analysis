@@ -27,8 +27,7 @@ process PHROKKA {
 
     cp phrokka_out/${meta.id}.gbk .
     cp phrokka_out/${meta.id}.gff .
-    # pharokka v1.8+ protein FASTA: phanotate.faa
-    cp phrokka_out/phanotate.faa ${meta.id}.faa
+    cp phrokka_out/${meta.id}.faa .
     cp phrokka_out/${meta.id}_cds_final_merged_output.tsv . 2>/dev/null || true
     """
 }

@@ -16,8 +16,16 @@ process VCONTACT2 {
 
     script:
     """
-    # 1) Tüm protein FASTA'larını birleştir
-    cat ${faa_files} > all_proteins.faa
+    # 1) Her FAA dosyasının protein başlıklarına örnek adını ekle
+    # Pharokka rastgele locus tag üretir (örn: TEKFYSRY_CDS_0001)
+    # bunu {sample_id}_CDS_{n} formatına dönüştürüyoruz
+    for faa in ${faa_files}; do
+        sample=\$(basename "\$faa" .faa)
+        awk -v s="\$sample" '
+            /^>/ { n++; print ">" s "_CDS_" n; next }
+            { print }
+        ' "\$faa"
+    done > all_proteins.faa
 
     # 2) gene-to-genome CSV'si üret
     python3 ${projectDir}/bin/make_gene2genome.py \\

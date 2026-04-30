@@ -83,6 +83,5 @@ dependencies:
   - vhulk=2.0.0
 
   # ── pip installs ──────────────────────────────────────────────────────────────
-  # bacphlip: installed via "conda install --no-deps" in Dockerfile to bypass the
-  #   hard sklearn 0.23.1 pin in the bioconda recipe. See Dockerfile for details.
+  # screed ve bacphlip Dockerfile'da ayrıca kurulur (pip metadata sorunu)
   - pip

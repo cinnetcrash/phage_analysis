@@ -27,7 +27,7 @@ process PHROKKA {
 
     cp phrokka_out/${meta.id}.gbk .
     cp phrokka_out/${meta.id}.gff .
-    cp phrokka_out/${meta.id}.faa .
+    cp phrokka_out/${meta.id}.faa . 2>/dev/null || cp phrokka_out/phanotate.faa ${meta.id}.faa
     cp phrokka_out/${meta.id}_cds_final_merged_output.tsv . 2>/dev/null || true
     """
 }

@@ -63,7 +63,7 @@ def is_circular(row: dict, min_completeness: float) -> bool:
     Satırın circular/complete kritere uyup uymadığını döndür.
     """
     quality = row.get("checkv_quality", "").strip()
-    if quality == "Complete":
+    if quality in ("Complete", "High-quality"):
         return True
 
     # Tamamlanma yüzdesi kontrolü

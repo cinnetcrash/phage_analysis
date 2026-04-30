@@ -20,14 +20,18 @@ process PROKKA {
     // locustag: sadece harf, max 4 karakter, büyük harf
     def locustag = meta.id.replaceAll(/[^A-Za-z]/, '').take(4).toUpperCase() ?: 'PHAG'
     """
+    # Contig ID'leri kısalt (Prokka ≤37 karakter gerektirir)
+    awk '/^>/{n++; print ">contig_"n; next}{print}' ${fasta} > renamed.fna
+
     prokka \\
         --outdir prokka_out \\
         --prefix ${meta.id} \\
         --kingdom Viruses \\
         --locustag ${locustag} \\
+        --centre X --compliant \\
         --force \\
         --cpus ${task.cpus} \\
-        ${fasta}
+        renamed.fna
 
     cp prokka_out/${meta.id}.gbk .
     cp prokka_out/${meta.id}.gff .

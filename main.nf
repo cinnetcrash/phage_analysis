@@ -103,6 +103,13 @@ def validate_params() {
         help_message()
         System.exit(0)
     }
+    if (params.skip_assembly) {
+        if (!params.fasta_samplesheet) {
+            log.error "ERROR: --fasta_samplesheet is required when using --skip_assembly."
+            System.exit(1)
+        }
+        return
+    }
     if (!params.samplesheet) {
         log.error "ERROR: --samplesheet is required. See --help for usage."
         System.exit(1)
@@ -159,48 +166,69 @@ workflow {
     ╚══════════════════════════════════════════════════════════════════╝
     """.stripIndent()
 
-    // ── 0. Girdi ──────────────────────────────────────────────────────────────
-    raw_reads_ch = parse_samplesheet(params.samplesheet)
-
-    // ── 1. FastQC (ham okumalar üzerinde) ────────────────────────────────────
-    FASTQC(raw_reads_ch)
-
-    // ── 2. fastp – adapter kesme ve kalite filtresi ───────────────────────────
-    FASTP(raw_reads_ch)
-    trimmed_reads_ch = FASTP.out.reads
-
-    // ── 3. Kraken2 – viral sınıflandırma (trimmed, opsiyonel) ────────────────
-    if (!params.skip_kraken2) {
-        KRAKEN2(trimmed_reads_ch)
-    }
-
-    // ── 4. SPAdes metaviral assembly (trimmed reads) ──────────────────────────
-    SPADES(trimmed_reads_ch)
-
-    // ── 4. VirSorter2 – viral sekans tespiti (opsiyonel) ──────────────────────
-    // --skip_virsorter: SPAdes contigleri doğrudan CheckV'ye gönderilir
-    if (!params.skip_virsorter) {
-        VIRSORTER2(SPADES.out.contigs)
-        checkv_input_ch = VIRSORTER2.out.viral_seqs
+    if (params.skip_assembly) {
+        // ── FASTA modu: assembly adımlarını atla ─────────────────────────────
+        log.info "skip_assembly=true — FASTA samplesheet'ten doğrudan başlanıyor."
+        circular_ch = Channel
+            .fromPath(params.fasta_samplesheet)
+            .splitCsv(header: true, strip: true)
+            .map { row ->
+                def meta = [ id: row.sample_id, host: row.host?.toLowerCase()?.trim() ?: 'other' ]
+                [ meta, file(row.fasta, checkIfExists: true) ]
+            }
+            .filter { meta, fasta -> fasta.size() > 0 }
+        qc_files = Channel.empty()
     } else {
-        log.warn "VirSorter2 atlandı — SPAdes contigleri doğrudan CheckV'ye gönderiliyor."
-        checkv_input_ch = SPADES.out.contigs
+        // ── 0. Girdi ─────────────────────────────────────────────────────────
+        raw_reads_ch = parse_samplesheet(params.samplesheet)
+
+        // ── 1. FastQC ────────────────────────────────────────────────────────
+        FASTQC(raw_reads_ch)
+
+        // ── 2. fastp ─────────────────────────────────────────────────────────
+        FASTP(raw_reads_ch)
+        trimmed_reads_ch = FASTP.out.reads
+
+        // ── 3. Kraken2 (opsiyonel) ───────────────────────────────────────────
+        if (!params.skip_kraken2) {
+            KRAKEN2(trimmed_reads_ch)
+        }
+
+        // ── 4. SPAdes ────────────────────────────────────────────────────────
+        SPADES(trimmed_reads_ch)
+
+        // ── 5. VirSorter2 (opsiyonel) ────────────────────────────────────────
+        if (!params.skip_virsorter) {
+            VIRSORTER2(SPADES.out.contigs)
+            checkv_input_ch = VIRSORTER2.out.viral_seqs
+        } else {
+            log.warn "VirSorter2 atlandı — SPAdes contigleri doğrudan CheckV'ye gönderiliyor."
+            checkv_input_ch = SPADES.out.contigs
+        }
+
+        // ── 6. CheckV ────────────────────────────────────────────────────────
+        CHECKV(checkv_input_ch)
+
+        // ── 7. Circular / Complete filtre ────────────────────────────────────
+        checkv_for_filter = CHECKV.out.viruses
+            .join(CHECKV.out.proviruses, by: 0)
+            .join(CHECKV.out.summary,   by: 0)
+            .map { meta, vir, pro, summ -> tuple(meta, vir, pro, summ) }
+
+        FILTER_CHECKV_CIRCULAR(checkv_for_filter)
+
+        circular_ch = FILTER_CHECKV_CIRCULAR.out.circular_fasta
+            .filter { meta, fasta -> fasta.size() > 0 }
+
+        qc_files = FASTQC.out.zip
+            .map { meta, zips -> zips }
+            .mix(FASTP.out.json.map { meta, j -> j })
+            .mix(CHECKV.out.summary.map { meta, s -> s })
+
+        if (!params.skip_kraken2) {
+            qc_files = qc_files.mix(KRAKEN2.out.report.map { meta, r -> r })
+        }
     }
-
-    // ── 5. CheckV – kalite değerlendirme ─────────────────────────────────────
-    CHECKV(checkv_input_ch)
-
-    // ── 6. Circular / Complete filtre ────────────────────────────────────────
-    checkv_for_filter = CHECKV.out.viruses
-        .join(CHECKV.out.proviruses, by: 0)
-        .join(CHECKV.out.summary,   by: 0)
-        .map { meta, vir, pro, summ -> tuple(meta, vir, pro, summ) }
-
-    FILTER_CHECKV_CIRCULAR(checkv_for_filter)
-
-    // Hiç circular genom çıkmayan örnekleri düşür
-    circular_ch = FILTER_CHECKV_CIRCULAR.out.circular_fasta
-        .filter { meta, fasta -> fasta.size() > 0 }
 
     // ──────────────────────────────────────────────────────────────────────────
     //  AŞAĞIDA SADECE CIRCULAR / COMPLETE FAJLAR İŞLENİR
@@ -210,17 +238,24 @@ workflow {
     BACPHLIP(circular_ch)
 
     // ── 8. Anotasyon ──────────────────────────────────────────────────────────
-    phrokka_input = circular_ch.filter { meta, _f -> meta.host == 'ecoli' }
-    prokka_input  = circular_ch.filter { meta, _f -> meta.host != 'ecoli' }
+    // skip_assembly modunda Pharokka tüm fajlar için kullanılır (host bağımsız)
+    if (params.skip_assembly) {
+        PHROKKA(circular_ch)
+        all_faa_ch = PHROKKA.out.faa
+            .map { meta, faa -> faa }
+            .collect()
+    } else {
+        phrokka_input = circular_ch.filter { meta, _f -> meta.host == 'ecoli' }
+        prokka_input  = circular_ch.filter { meta, _f -> meta.host != 'ecoli' }
 
-    PHROKKA(phrokka_input)
-    PROKKA(prokka_input)
+        PHROKKA(phrokka_input)
+        PROKKA(prokka_input)
 
-    // tüm .faa → vContact2 için birleştir
-    all_faa_ch = PHROKKA.out.faa
-        .mix(PROKKA.out.faa)
-        .map { meta, faa -> faa }
-        .collect()
+        all_faa_ch = PHROKKA.out.faa
+            .mix(PROKKA.out.faa)
+            .map { meta, faa -> faa }
+            .collect()
+    }
 
     // ── 9. vContact2 – viral taksonomi kümeleme ───────────────────────────────
     VCONTACT2(all_faa_ch)
@@ -234,16 +269,7 @@ workflow {
     }
 
     // ── 13. MultiQC raporu ───────────────────────────────────────────────────
-    qc_files = FASTQC.out.zip
-        .map { meta, zips -> zips }
-        .mix(FASTP.out.json.map { meta, j -> j })
-        .mix(CHECKV.out.summary.map { meta, s -> s })
-
-    if (!params.skip_kraken2) {
-        qc_files = qc_files.mix(KRAKEN2.out.report.map { meta, r -> r })
-    }
-
-    MULTIQC(qc_files.collect())
+    MULTIQC(qc_files.collect().ifEmpty([file("${params.outdir}/.no_qc")]))
 
     // ── 14. HTML özet raporu ─────────────────────────────────────────────────
     // Tüm terminal adımların bitmesini beklemek için completion sinyalleri toplanır.

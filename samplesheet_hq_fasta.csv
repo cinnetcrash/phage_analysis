@@ -1,0 +1,15 @@
+sample_id,host,fasta
+ECO103-4-12-1_S2,ecoli,/home/analysis/Desktop/naim_results_hq/checkv_filtered_hq/ECO103-4-12-1_S2/filtered_hq.fna
+ECO104-4-5-2_S5,ecoli,/home/analysis/Desktop/naim_results_hq/checkv_filtered_hq/ECO104-4-5-2_S5/filtered_hq.fna
+ECO111_S1,ecoli,/home/analysis/Desktop/naim_results_hq/checkv_filtered_hq/ECO111_S1/filtered_hq.fna
+ECO121-2-1-1_S10,ecoli,/home/analysis/Desktop/naim_results_hq/checkv_filtered_hq/ECO121-2-1-1_S10/filtered_hq.fna
+ECO22-5-F2_S13,ecoli,/home/analysis/Desktop/naim_results_hq/checkv_filtered_hq/ECO22-5-F2_S13/filtered_hq.fna
+ECO26-1-3-1_S11,ecoli,/home/analysis/Desktop/naim_results_hq/checkv_filtered_hq/ECO26-1-3-1_S11/filtered_hq.fna
+Efm-3-1_S6,enterococcus,/home/analysis/Desktop/naim_results_hq/checkv_filtered_hq/Efm-3-1_S6/filtered_hq.fna
+Efs-1-1-1_S7,enterococcus,/home/analysis/Desktop/naim_results_hq/checkv_filtered_hq/Efs-1-1-1_S7/filtered_hq.fna
+LM-11_S16,listeria,/home/analysis/Desktop/naim_results_hq/checkv_filtered_hq/LM-11_S16/filtered_hq.fna
+LM-4-14_S18,listeria,/home/analysis/Desktop/naim_results_hq/checkv_filtered_hq/LM-4-14_S18/filtered_hq.fna
+SA-1298-Kayseri-MAS_S9,staphylococcus,/home/analysis/Desktop/naim_results_hq/checkv_filtered_hq/SA-1298-Kayseri-MAS_S9/filtered_hq.fna
+S-Hadar-4-5-1_S8,salmonella,/home/analysis/Desktop/naim_results_hq/checkv_filtered_hq/S-Hadar-4-5-1_S8/filtered_hq.fna
+S-Inf-F2_S14,salmonella,/home/analysis/Desktop/naim_results_hq/checkv_filtered_hq/S-Inf-F2_S14/filtered_hq.fna
+S-Kent-1-2-1_S3,salmonella,/home/analysis/Desktop/naim_results_hq/checkv_filtered_hq/S-Kent-1-2-1_S3/filtered_hq.fna

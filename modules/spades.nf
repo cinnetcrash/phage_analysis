@@ -36,7 +36,10 @@ process SPADES {
         -2 ${r2} \\
         -o . \\
         -t ${task.cpus} \\
-        -m ${task.memory.toGiga()}
+        -m ${task.memory.toGiga()} || true
+
+    # metaviralSPAdes kontig bulamazsa contigs.fasta oluşturmaz; boş dosya yarat
+    [ -f contigs.fasta ] || touch contigs.fasta
 
     # Kısa contigleri filtrele (>= min_contig_len)
     awk -v min=${params.min_contig_len} '

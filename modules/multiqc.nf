@@ -4,7 +4,7 @@ process MULTIQC {
     errorStrategy 'ignore'   // MultiQC başarısız olsa bile pipeline devam eder
 
     input:
-    path(qc_files)
+    path(qc_files, stageAs: "inputs/?/*")
 
     output:
     path("multiqc_report.html"), optional: true, emit: report
